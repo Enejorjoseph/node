@@ -325,7 +325,7 @@ export default async function DashboardPage({
                   </p>
                 </div>
                 <span className="ml-auto hidden shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:text-indigo-700 sm:inline-flex dark:text-indigo-300 dark:group-hover:text-indigo-200">
-                  Manage accounts <span aria-hidden="true">→</span>
+                  Manage account <span aria-hidden="true">→</span>
                 </span>
               </Link>
             </div>

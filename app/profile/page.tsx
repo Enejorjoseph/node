@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { AddAccountForm } from "@/components/accounts/add-account-form";
+import { signout } from "@/app/actions/auth";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 type Profile = {
   id: string;
@@ -42,23 +43,28 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
-  const { data: rows, error } = await supabase
+  // An account is private to its owner, so only ever read the caller's own
+  // profile. The row level security policy enforces the same rule in SQL.
+  const { data: row, error } = await supabase
     .from("profiles")
     .select("id, email, name, date_of_birth, created_at")
-    .order("created_at", { ascending: false });
+    .eq("id", user.id)
+    .maybeSingle();
 
-  const accounts: Profile[] = (rows ?? []).map((row) => ({
-    id: String(row.id),
-    email: String(row.email),
-    name: String(row.name),
-    date_of_birth:
-      typeof row.date_of_birth === "string" ? row.date_of_birth : null,
-    created_at: String(row.created_at),
-  }));
+  const profile: Profile | null = row
+    ? {
+        id: String(row.id),
+        email: String(row.email),
+        name: String(row.name),
+        date_of_birth:
+          typeof row.date_of_birth === "string" ? row.date_of_birth : null,
+        created_at: String(row.created_at),
+      }
+    : null;
 
-  const accountCountLabel = `${accounts.length} ${
-    accounts.length === 1 ? "account" : "accounts"
-  }`;
+  const avatarLabel = profile
+    ? getInitials(profile.name) || profile.email[0].toUpperCase()
+    : "";
 
   return (
     <main className="min-h-full bg-slate-950 px-4 py-8 dark:bg-slate-950 sm:px-6 lg:px-8">
@@ -81,15 +87,15 @@ export default async function ProfilePage() {
                   Account center
                 </p>
                 <h2 className="mt-4 max-w-sm text-4xl font-bold leading-tight tracking-tight">
-                  Keep your profiles in one place.
+                  Keep your profile up to date.
                 </h2>
                 <p className="mt-5 max-w-sm text-sm leading-6 text-slate-300">
-                  Review, add, or remove account profiles without leaving your
-                  dashboard.
+                  Review your account details or remove the account without
+                  leaving your dashboard.
                 </p>
               </div>
               <p className="relative text-sm text-slate-400">
-                One view. Every profile.
+                Private to you. Always.
               </p>
             </aside>
 
@@ -117,112 +123,90 @@ export default async function ProfilePage() {
                   Account center
                 </p>
                 <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                  Manage accounts
+                  Manage account
                 </h1>
                 <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Add accounts, review profile details, and remove accounts you
-                  no longer need.
+                  Review your profile details. Accounts are private, so nobody
+                  else can see or manage yours.
                 </p>
               </div>
 
               <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-indigo-400/20 dark:bg-indigo-500/10">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-300">
-                    Total accounts
+                    Your account
                   </p>
                   <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                     Signed in as {user.email}
                   </p>
                 </div>
                 <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-300">
-                  {accounts.length}
+                  Private
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section aria-labelledby="accounts-heading">
+        <section aria-labelledby="account-heading">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Directory
+                Profile
               </p>
               <h2
-                id="accounts-heading"
+                id="account-heading"
                 className="mt-1 text-xl font-bold tracking-tight text-white"
               >
-                Accounts
+                Your account
               </h2>
             </div>
             <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-              {accountCountLabel}
+              Visible only to you
             </span>
           </div>
 
           {error ? (
             <div className="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-6 text-sm text-rose-300">
-              Unable to load accounts: {error.message}
+              Unable to load your account: {error.message}
             </div>
-          ) : accounts.length === 0 ? (
+          ) : profile === null ? (
             <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900 px-6 py-12 text-center">
               <p className="text-sm font-semibold text-white">
-                No accounts yet.
+                No profile yet.
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                Add one below to get started.
+                Your profile should have been created when you signed up.
               </p>
             </div>
           ) : (
-            <ul className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-              {accounts.map((account) => {
-                const avatarLabel =
-                  getInitials(account.name) || account.email[0].toUpperCase();
-                const isCurrentUser = account.id === user.id;
-
-                return (
-                  <li
-                    key={account.id}
-                    className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 transition-colors last:border-b-0 hover:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold ${
-                          isCurrentUser
-                            ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                            : "bg-slate-800 text-slate-300"
-                        }`}
-                      >
-                        {avatarLabel}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-white">
-                          {account.name || "Unnamed"}
-                          {isCurrentUser && (
-                            <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
-                              You
-                            </span>
-                          )}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-slate-400">
-                          {account.email}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-slate-500">
-                          {formatDate(account.date_of_birth)} · Joined{" "}
-                          {formatDate(account.created_at.slice(0, 10))}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="shrink-0 sm:pl-4">
-                      <DeleteAccountButton
-                        id={account.id}
-                        isCurrentUser={isCurrentUser}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
+              <div className="flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-500 text-sm font-bold text-white shadow-lg shadow-indigo-500/20">
+                    {avatarLabel}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-white">
+                      {profile.name || "Unnamed"}
+                      <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                        You
+                      </span>
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-400">
+                      {profile.email}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {formatDate(profile.date_of_birth)} · Joined{" "}
+                      {formatDate(profile.created_at.slice(0, 10))}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 sm:pl-4">
+                  <DeleteAccountButton id={profile.id} />
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
@@ -231,18 +215,30 @@ export default async function ProfilePage() {
             <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-indigo-500/25 blur-3xl" />
             <div className="relative">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300">
-                New profile
+                New account
               </p>
               <h2 className="mt-3 text-2xl font-bold tracking-tight">
-                Add an account
+                Create another account
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                Create another account profile to keep your list up to date.
+                Accounts are separate and private, so you have to sign out before
+                you can register a different one.
               </p>
             </div>
           </div>
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-            <AddAccountForm />
+          <div className="flex flex-col justify-center gap-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+            <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Signing out takes you to the login page, where you can create a
+              brand new account with its own profile and expenses.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={signout}>
+                <LogoutButton variant="light" />
+              </form>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                then choose <strong>Create account</strong>
+              </span>
+            </div>
           </div>
         </section>
       </div>
