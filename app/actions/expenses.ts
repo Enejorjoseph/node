@@ -26,16 +26,24 @@ function validateExpense(
   return null;
 }
 
-export async function addExpense(
-  _prevState: ExpenseState,
-  formData: FormData
-): Promise<ExpenseState> {
-  const title = field(formData, "title");
-  const amount = field(formData, "amount");
-  const category = field(formData, "category");
-  const expenseDate = field(formData, "expense_date");
-
-  const validationError = validateExpense(title, amount, category, expenseDate);
+/**
+ * Validates and inserts one expense for the signed-in user.
+ *
+ * Shared by the manual form and the AI chat, so both go through the same checks
+ * and both refresh the dashboard.
+ */
+export async function createExpense(input: {
+  title: string;
+  amount: number;
+  category: string;
+  expenseDate: string;
+}): Promise<{ error: string } | undefined> {
+  const validationError = validateExpense(
+    input.title,
+    String(input.amount),
+    input.category,
+    input.expenseDate
+  );
   if (validationError) return { error: validationError };
 
   const supabase = await createClient();
@@ -47,15 +55,38 @@ export async function addExpense(
 
   const { error } = await supabase.from("expenses").insert({
     user_id: user.id,
-    title,
-    amount: Number(amount),
-    category,
-    expense_date: expenseDate,
+    title: input.title,
+    amount: input.amount,
+    category: input.category,
+    expense_date: input.expenseDate,
   });
 
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard");
+  return undefined;
+}
+
+export async function addExpense(
+  _prevState: ExpenseState,
+  formData: FormData
+): Promise<ExpenseState> {
+  const title = field(formData, "title");
+  const amount = field(formData, "amount");
+  const category = field(formData, "category");
+  const expenseDate = field(formData, "expense_date");
+
+  const amountNumber = Number(amount);
+
+  const result = await createExpense({
+    title,
+    amount: amountNumber,
+    category,
+    expenseDate,
+  });
+
+  if (result?.error) return { error: result.error };
+
   return undefined;
 }
 

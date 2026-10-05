@@ -308,6 +308,25 @@ export default async function DashboardPage({
                 </p>
               </div>
 
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a
+                  href="#add-expense"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                >
+                  Add expense
+                  <span aria-hidden="true">↓</span>
+                </a>
+
+                <Link
+                  href="/dashboard/ai"
+                  prefetch={false}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
+                >
+                  Manage expense with AI
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+
               <Link
                 href="/profile"
                 prefetch={false}
@@ -395,11 +414,21 @@ export default async function DashboardPage({
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+          <article
+            aria-labelledby="add-expense-heading"
+            // Anchor target for the header link. Focusable so following the link
+            // with the keyboard moves the reading position, not just the scroll.
+            id="add-expense"
+            tabIndex={-1}
+            className="scroll-mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm focus:outline-none dark:border-slate-800 dark:bg-slate-900 sm:p-6"
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
               New entry
             </p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-white">
+            <h2
+              id="add-expense-heading"
+              className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-white"
+            >
               Add an expense
             </h2>
             <div className="mt-6">
@@ -418,7 +447,14 @@ export default async function DashboardPage({
           </article>
         </section>
 
-        <section aria-labelledby="activity-heading">
+        <section
+          aria-labelledby="activity-heading"
+          // Anchor target for the header link, and focusable so following that
+          // link with the keyboard moves the reading position, not just the scroll.
+          id="expenses"
+          tabIndex={-1}
+          className="scroll-mt-8 focus:outline-none"
+        >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">

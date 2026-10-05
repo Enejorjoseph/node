@@ -12,6 +12,9 @@ export const EXPENSE_CATEGORIES = [
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+/** Single source of truth so the formatter and the AI payload cannot drift. */
+export const CURRENCY = "NGN";
+
 export type Expense = {
   id: string;
   title: string;
@@ -217,7 +220,7 @@ export function toLocalISODate(date: Date = new Date()): string {
 export function formatNaira(amount: number): string {
   return new Intl.NumberFormat("en-NG", {
     style: "currency",
-    currency: "NGN",
+    currency: CURRENCY,
     maximumFractionDigits: 2,
   }).format(amount);
 }
@@ -228,17 +231,131 @@ export function formatShortDate(iso: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function monthRange(): { startOfMonth: string; endOfMonth: string } {
-  const now = new Date();
+/**
+ * Inclusive ISO bounds for a calendar month, `offset` months away from `from`.
+ * Going through the Date constructor normalises the rollover, so January at
+ * -1 is December of the previous year rather than month zero.
+ */
+export function monthRangeFor(
+  offset = 0,
+  from: Date = new Date()
+): { startOfMonth: string; endOfMonth: string } {
+  const start = new Date(from.getFullYear(), from.getMonth() + offset, 1);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
   return {
-    startOfMonth: toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1)),
-    endOfMonth: toLocalISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    startOfMonth: toLocalISODate(start),
+    endOfMonth: toLocalISODate(end),
   };
 }
 
+export function monthLabelFor(offset = 0, from: Date = new Date()): string {
+  return new Date(from.getFullYear(), from.getMonth() + offset, 1).toLocaleDateString(
+    "en-US",
+    { month: "long", year: "numeric" }
+  );
+}
+
+export function monthRange(): { startOfMonth: string; endOfMonth: string } {
+  return monthRangeFor(0);
+}
+
 export function monthLabel(): string {
-  return new Date().toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  return monthLabelFor(0);
+}
+
+/** One category's share of a month's spending, as sent to the summariser. */
+export type CategoryShare = {
+  name: string;
+  amount: number;
+  percentage: number;
+};
+
+/**
+ * Pre-calculated figures for one month. The model never sees raw expenses, so
+ * this is the only thing it can draw a conclusion from, which is what keeps the
+ * summary from inventing rows that were never recorded.
+ */
+export type MonthStats = {
+  month: string;
+  currency: string;
+  total_spending: number;
+  transaction_count: number;
+  previous_month: string;
+  previous_month_total: number | null;
+  change_percentage: number | null;
+  categories: CategoryShare[];
+  highest_category: CategoryShare | null;
+  lowest_category: CategoryShare | null;
+};
+
+export type SpendingRow = { amount: number; category: string };
+
+function round(value: number, places: number): number {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
+}
+
+export function categoryBreakdown(rows: SpendingRow[]): CategoryShare[] {
+  const totals = new Map<string, number>();
+  let grand = 0;
+
+  for (const row of rows) {
+    grand += row.amount;
+    totals.set(row.category, (totals.get(row.category) ?? 0) + row.amount);
+  }
+
+  return Array.from(totals, ([name, amount]) => ({
+    name,
+    amount: round(amount, 2),
+    percentage: grand > 0 ? round((amount / grand) * 100, 1) : 0,
+  })).sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
+/**
+ * Builds the stats payload for the month `offset` months from `from`.
+ *
+ * `previous_month_total` stays null when last month had no rows at all: a zero
+ * would read as "spending fell to nothing" and invite a comparison the user
+ * never asked for. The same applies to a percentage off a zero base.
+ */
+export function buildMonthStats({
+  current,
+  previous,
+  offset = 0,
+  from = new Date(),
+}: {
+  current: SpendingRow[];
+  previous?: SpendingRow[];
+  offset?: number;
+  from?: Date;
+}): MonthStats {
+  const total = round(
+    current.reduce((sum, row) => sum + row.amount, 0),
+    2
+  );
+  const categories = categoryBreakdown(current);
+
+  const previousTotal =
+    previous && previous.length > 0
+      ? round(
+          previous.reduce((sum, row) => sum + row.amount, 0),
+          2
+        )
+      : null;
+
+  return {
+    month: monthLabelFor(offset, from),
+    currency: CURRENCY,
+    total_spending: total,
+    transaction_count: current.length,
+    previous_month: monthLabelFor(offset - 1, from),
+    previous_month_total: previousTotal,
+    change_percentage:
+      previousTotal && previousTotal > 0
+        ? round(((total - previousTotal) / previousTotal) * 100, 1)
+        : null,
+    categories,
+    highest_category: categories[0] ?? null,
+    lowest_category: categories[categories.length - 1] ?? null,
+  };
 }
