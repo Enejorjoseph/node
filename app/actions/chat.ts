@@ -17,10 +17,13 @@ export type ChatState =
 
 export type SaveState = { error: string | null; saved: number };
 
-const MAX_MESSAGE_CHARS = 500;
+export type FeedbackState = { error: string | null; saved: boolean };
+
+const MAX_MESSAGE_CHARS = 25;
 const MAX_HISTORY_CHARS = 400;
 /** Matches the cap in the extraction module. */
 const MAX_HISTORY_TURNS = 8;
+const MAX_REPLY_CHARS = 400;
 
 async function requireUser() {
   const supabase = await createClient();
@@ -30,6 +33,7 @@ async function requireUser() {
   } = await supabase.auth.getUser();
 
   if (error || !user) redirect("/login");
+  return user;
 }
 
 /**
@@ -157,4 +161,40 @@ export async function saveExpenseDraft(
   }
 
   return { error: null, saved: 1 };
+}
+
+/**
+ * Records a thumbs up or thumbs down on one AI reply.
+ *
+ * The rating arrives from the browser, so it is checked against a whitelist
+ * rather than written as-is, and the reply is kept for context because a bare
+ * rating is meaningless once the browser history is gone.
+ */
+export async function recordChatFeedback(
+  rating: unknown,
+  reply: unknown
+): Promise<FeedbackState> {
+  if (rating !== "up" && rating !== "down") {
+    return { error: "Choose thumbs up or thumbs down.", saved: false };
+  }
+
+  const text =
+    typeof reply === "string"
+      ? reply.replace(/\s+/g, " ").trim().slice(0, MAX_REPLY_CHARS)
+      : "";
+
+  const user = await requireUser();
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("chat_feedback").insert({
+    user_id: user.id,
+    rating,
+    reply: text,
+  });
+
+  if (error) {
+    return { error: "That feedback could not be saved. Try again.", saved: false };
+  }
+
+  return { error: null, saved: true };
 }
