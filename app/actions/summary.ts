@@ -41,6 +41,7 @@ export async function generateSummary(): Promise<SummaryState> {
     .from("expenses")
     .select("amount, category, expense_date")
     .eq("user_id", user.id)
+    .eq("dismissed", false)
     .gte("expense_date", previous.startOfMonth)
     .lte("expense_date", current.endOfMonth);
 

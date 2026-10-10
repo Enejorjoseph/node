@@ -107,6 +107,7 @@ export function AddExpenseForm() {
           id="expense-date"
           name="expense_date"
           type="date"
+          max={toLocalISODate()}
           required
           className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-indigo-400 dark:focus:bg-slate-950"
         />

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { deleteExpense } from "@/app/actions/expenses";
+import { deleteExpense, setExpenseDismissed } from "@/app/actions/expenses";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   formatNaira,
@@ -62,6 +62,29 @@ function DeleteExpenseButton({ title }: { title: string }) {
   );
 }
 
+function ToggleDismissButton({ expense }: { expense: Expense }) {
+  return (
+    <form action={setExpenseDismissed}>
+      <input type="hidden" name="id" value={expense.id} />
+      <input
+        type="hidden"
+        name="dismissed"
+        value={expense.dismissed ? "0" : "1"}
+      />
+      <button
+        type="submit"
+        className={
+          expense.dismissed
+            ? "rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300 transition-colors hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-indigo-300"
+            : "rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300 transition-colors hover:border-amber-400/30 hover:bg-amber-500/10 hover:text-amber-300"
+        }
+      >
+        {expense.dismissed ? "Restore" : "Dismiss"}
+      </button>
+    </form>
+  );
+}
+
 function ExpenseRow({ expense }: { expense: Expense }) {
   const [editing, setEditing] = useState(false);
   const onSaved = useCallback(() => setEditing(false), []);
@@ -95,10 +118,15 @@ function ExpenseRow({ expense }: { expense: Expense }) {
               {expense.category}
             </span>
             <span>{formatShortDate(expense.expense_date)}</span>
+            {expense.dismissed && (
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Dismissed
+              </span>
+            )}
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 sm:justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
         <p className="text-sm font-bold text-white">
           {formatNaira(expense.amount)}
         </p>
@@ -109,6 +137,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
         >
           Edit
         </button>
+        <ToggleDismissButton expense={expense} />
         <form action={deleteExpense}>
           <input type="hidden" name="id" value={expense.id} />
           <DeleteExpenseButton title={expense.title} />
@@ -141,7 +170,10 @@ export function ExpenseList({
     if (totalExpenses > 0) {
       return (
         <>
-          <ExpenseFiltersForm filters={filters} isFiltered={hasFilters} />
+          <ExpenseFiltersForm
+            filters={filters}
+            isFiltered={hasFilters}
+          />
           <div className="px-6 py-12 text-center">
             <p className="text-sm font-semibold text-white">
               Nothing on this page.
@@ -156,7 +188,10 @@ export function ExpenseList({
 
     return (
       <>
-        <ExpenseFiltersForm filters={filters} isFiltered={hasFilters} />
+        <ExpenseFiltersForm
+          filters={filters}
+          isFiltered={hasFilters}
+        />
         <div className="px-6 py-12 text-center">
           <p className="text-sm font-semibold text-white">
             {hasFilters
@@ -175,7 +210,10 @@ export function ExpenseList({
 
   return (
     <>
-      <ExpenseFiltersForm filters={filters} isFiltered={hasFilters} />
+      <ExpenseFiltersForm
+        filters={filters}
+        isFiltered={hasFilters}
+      />
       <ul>
         {expenses.map((expense) => (
           <ExpenseRow key={expense.id} expense={expense} />

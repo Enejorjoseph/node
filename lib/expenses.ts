@@ -21,6 +21,8 @@ export type Expense = {
   amount: number;
   category: string;
   expense_date: string;
+  /** Hidden from the dashboard until the user restores it. */
+  dismissed: boolean;
 };
 
 export type CategoryTotal = {
@@ -50,6 +52,7 @@ export type ExpenseFilters = {
   to: string;
   min: string;
   max: string;
+  showDismissed: boolean;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -82,6 +85,7 @@ export function parseFilters(params: SearchParams): ExpenseFilters {
     to: isIsoDate(to) ? to : "",
     min: single(params.min),
     max: single(params.max),
+    showDismissed: single(params.show_dismissed) === "1",
   };
 }
 
@@ -92,7 +96,8 @@ export function isFiltered(filters: ExpenseFilters): boolean {
     filters.from !== "" ||
     filters.to !== "" ||
     filters.min !== "" ||
-    filters.max !== ""
+    filters.max !== "" ||
+    filters.showDismissed
   );
 }
 
@@ -112,6 +117,7 @@ function serializeFilters(filters: ExpenseFilters): string {
   if (filters.to) params.set("to", filters.to);
   if (filters.min) params.set("min", filters.min);
   if (filters.max) params.set("max", filters.max);
+  if (filters.showDismissed) params.set("show_dismissed", "1");
 
   return params.toString();
 }
@@ -191,6 +197,14 @@ export function activeFilters(filters: ExpenseFilters): FilterChip[] {
       key: "max",
       label: `Max \u20a6${filters.max}`,
       href: href({ ...filters, max: "" }),
+    });
+  }
+
+  if (filters.showDismissed) {
+    chips.push({
+      key: "dismissed",
+      label: "Including dismissed",
+      href: href({ ...filters, showDismissed: false }),
     });
   }
 

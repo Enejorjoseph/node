@@ -37,6 +37,7 @@ type ExpensePageRow = {
   amount: unknown;
   category: unknown;
   expense_date: unknown;
+  dismissed: unknown;
   total_count: unknown;
 };
 
@@ -150,11 +151,15 @@ export default async function DashboardPage({
   // would report a month total while the table below shows a filtered subset.
   let statsQuery = supabase
     .from("expenses")
-    .select("id, title, amount, category, expense_date")
+    .select("id, title, amount, category, expense_date, dismissed")
     .eq("user_id", user.id)
     .gte("expense_date", filters.from || startOfMonth)
     .lte("expense_date", filters.to || endOfMonth)
     .order("expense_date", { ascending: false });
+
+  if (!filters.showDismissed) {
+    statsQuery = statsQuery.eq("dismissed", false);
+  }
 
   if (filters.search) {
     // Matches the function's own search, which covers the category as well as
@@ -182,6 +187,7 @@ export default async function DashboardPage({
     amount: Number(row.amount),
     category: String(row.category),
     expense_date: String(row.expense_date),
+    dismissed: Boolean(row.dismissed),
   }));
 
   // Paging and filtering both run in the database. Blank bounds are passed as
@@ -197,6 +203,7 @@ export default async function DashboardPage({
       p_categories: filters.categories.length > 0 ? filters.categories : null,
       p_min_amount: minAmount,
       p_max_amount: maxAmount,
+      p_show_dismissed: filters.showDismissed,
     }
   );
 
@@ -208,6 +215,7 @@ export default async function DashboardPage({
     amount: Number(row.amount),
     category: String(row.category),
     expense_date: String(row.expense_date),
+    dismissed: Boolean(row.dismissed),
   }));
 
   // The total rides along on each row. A page past the end returns no rows and
@@ -287,7 +295,26 @@ export default async function DashboardPage({
                 </form>
               </div>
 
-              <div className="mt-10 lg:mt-16">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a
+                  href="#add-expense"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                >
+                  Add expense
+                  <span aria-hidden="true">↓</span>
+                </a>
+
+                <Link
+                  href="/dashboard/ai"
+                  prefetch={false}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
+                >
+                  Add expense with AI
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+
+              <div className="mt-8">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
                     At a glance
@@ -306,25 +333,6 @@ export default async function DashboardPage({
                     ? "Totals reflect the filters applied to the expense list below."
                     : `Everything you have spent in ${monthLabel()}, broken down and ready to review.`}
                 </p>
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href="#add-expense"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
-                >
-                  Add expense
-                  <span aria-hidden="true">↓</span>
-                </a>
-
-                <Link
-                  href="/dashboard/ai"
-                  prefetch={false}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
-                >
-                  Manage expense with AI
-                  <span aria-hidden="true">→</span>
-                </Link>
               </div>
 
               <Link
@@ -422,15 +430,27 @@ export default async function DashboardPage({
             tabIndex={-1}
             className="scroll-mt-8 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm focus:outline-none dark:border-slate-800 dark:bg-slate-900 sm:p-6"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
-              New entry
-            </p>
-            <h2
-              id="add-expense-heading"
-              className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-white"
-            >
-              Add an expense
-            </h2>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+                  New entry
+                </p>
+                <h2
+                  id="add-expense-heading"
+                  className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-white"
+                >
+                  Add an expense
+                </h2>
+              </div>
+              <Link
+                href="/dashboard/ai"
+                prefetch={false}
+                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+              >
+                Add with AI instead
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
             <div className="mt-6">
               <AddExpenseForm />
             </div>
@@ -481,11 +501,17 @@ export default async function DashboardPage({
                 </p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
                   The <code className="text-slate-300">get_expenses_page</code>{" "}
-                  function is missing from the database. Run the pending files in{" "}
+                  function in the database does not match what the app calls.
+                  Run any pending files in{" "}
                   <code className="text-slate-300">supabase/migrations/</code>{" "}
-                  in the Supabase SQL editor, in order:{" "}
-                  <code className="text-slate-300">0003</code> then{" "}
-                  <code className="text-slate-300">0004</code>.
+                  in filename order in the Supabase SQL editor (newest last:{" "}
+                  <code className="text-slate-300">0008_dismiss_expenses.sql</code>
+                  ), then refresh. If everything is already applied, reload the
+                  schema cache with{" "}
+                  <code className="text-slate-300">
+                    NOTIFY pgrst, &apos;reload schema&apos;;
+                  </code>
+                  .
                 </p>
                 <p className="mt-3 text-xs text-slate-500">{pageError.code}</p>
               </div>
@@ -504,12 +530,19 @@ export default async function DashboardPage({
           </div>
         </section>
 
-        <footer className="flex flex-col gap-1 text-center text-xs text-slate-500 sm:flex-row sm:justify-center sm:gap-2">
+        <footer className="flex flex-col items-center gap-4 text-center text-xs text-slate-500 sm:flex-row sm:justify-center sm:gap-2">
           <span>Date of birth: {formatDate(dateOfBirth)}</span>
           <span aria-hidden="true" className="hidden sm:inline">
             ·
           </span>
           <span>Member since {formatDate(user.created_at?.slice(0, 10))}</span>
+          <Link
+            href="/feedback"
+            prefetch={false}
+            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            How can we improve your service?
+          </Link>
         </footer>
       </div>
     </main>

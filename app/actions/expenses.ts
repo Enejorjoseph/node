@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { toLocalISODate } from "@/lib/expenses";
 
 export type ExpenseState = { error: string } | undefined;
 
@@ -23,6 +24,9 @@ function validateExpense(
   }
   if (!category) return "Please choose a category.";
   if (!expenseDate) return "Please pick a date.";
+  if (expenseDate > toLocalISODate()) {
+    return "Expense date can't be in the future.";
+  }
   return null;
 }
 
@@ -140,6 +144,58 @@ export async function deleteExpense(formData: FormData): Promise<void> {
   if (!user) redirect("/login");
 
   await supabase.from("expenses").delete().eq("id", id);
+
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Hides an expense from the dashboard, or brings it back when it was already
+ * hidden. Dismissing never deletes the row, so this is always reversible from
+ * the "Include dismissed" view.
+ */
+export async function setExpenseDismissed(formData: FormData): Promise<void> {
+  const id = field(formData, "id");
+  if (!id) return;
+
+  const dismissed = field(formData, "dismissed") === "1";
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("expenses")
+    .update({ dismissed })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Hides or restores every expense the signed-in user has, across all months.
+ * Used by the bulk arrow beside the search box; the restore direction is what
+ * makes a hide-all safe to offer in one click.
+ */
+export async function setAllExpensesDismissed(
+  formData: FormData
+): Promise<void> {
+  const dismissed = field(formData, "dismissed") === "1";
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("expenses")
+    .update({ dismissed })
+    .eq("user_id", user.id);
 
   revalidatePath("/dashboard");
 }

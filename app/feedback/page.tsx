@@ -1,17 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ExpenseChat } from "@/components/expenses/expense-chat";
-import { ExpenseSummaryCard } from "@/components/expenses/expense-summary";
+import { FeedbackForm } from "@/components/feedback/feedback-form";
 
-/**
- * Home of the AI features, moved off the dashboard so that page stays focused on
- * the figures and the expense list. The dashboard links here from its header.
- *
- * Both cards call their own server action, which re-checks the session, so this
- * page needs no data of its own beyond confirming the caller is signed in.
- */
-export default async function DashboardAiPage() {
+export default async function FeedbackPage() {
   const supabase = await createClient();
 
   const {
@@ -33,19 +25,29 @@ export default async function DashboardAiPage() {
                 Personal finance
               </p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Add an expense with AI
+                How can we improve your service?
               </h1>
               <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Describe what you spent in your own words. The category is worked
-                out for you, and you confirm every detail before it is saved.
+                User testing report
+              </p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Share what you did and what you noticed while using the app.
+                Nothing is sent until you submit, so describe your own experience
+                in your own words.
               </p>
             </div>
           </div>
         </section>
 
-        <ExpenseChat />
-
-        <ExpenseSummaryCard />
+        <section
+          aria-labelledby="feedback-form-heading"
+          className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/10 dark:border-slate-800 dark:bg-slate-900 sm:p-8"
+        >
+          <h2 id="feedback-form-heading" className="sr-only">
+            User testing feedback form
+          </h2>
+          <FeedbackForm />
+        </section>
 
         <div className="flex justify-center">
           <Link
